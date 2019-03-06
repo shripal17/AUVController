@@ -1,0 +1,46 @@
+apply plugin: 'com.android.library'
+
+apply plugin: 'kotlin-android'
+
+apply plugin: 'kotlin-android-extensions'
+
+android {
+    compileSdkVersion 28
+    defaultConfig {
+        minSdkVersion 16
+        targetSdkVersion 28
+        versionCode 1
+        versionName "1.0"
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            postprocessing {
+                removeUnusedCode false
+                removeUnusedResources false
+                obfuscate false
+                optimizeCode false
+                proguardFile 'proguard-rules.pro'
+            }
+        }
+    }
+
+}
+
+dependencies {
+    def google_services_version = '16.0.0'
+    api fileTree(dir: 'libs', include: ['*.jar'])
+    api 'androidx.appcompat:appcompat:1.0.2'
+    api 'com.github.blennerSilva:AwesomeDialog:2.0.5'
+    api 'com.ndroid.nadim:cool-toast:1.0'
+    api 'com.google.code.gson:gson:2.8.5'
+    api 'com.github.clans:fab:1.6.4'
+    api('io.nlopez.smartlocation:library:+') {
+        transitive = false
+    }
+    api "com.google.android.gms:play-services-location:$google_services_version"
+    api "com.google.android.gms:play-services-maps:$google_services_version"
+    api 'dev.dworks.libs:volleyplus:+'
+    api "org.jetbrains.anko:anko:0.10.8"
+}

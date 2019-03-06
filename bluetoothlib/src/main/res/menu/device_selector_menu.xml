@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:app="http://schemas.android.com/apk/res-auto">
+
+  <item
+    android:id="@+id/searching"
+    app:actionViewClass="android.widget.ProgressBar"
+    android:title="Searching"
+    app:showAsAction="always"/>
+
+  <!--<item
+    android:id="@+id/bt_switch_id"
+    app:actionViewClass="android.widget.Switch"
+    android:title="Bluetooth"
+    app:showAsAction="always"/>-->
+
+</menu>

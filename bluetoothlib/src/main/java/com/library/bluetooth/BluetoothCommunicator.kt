@@ -1,30 +1,29 @@
 package com.library.bluetooth
 
 import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothSocket
 import android.content.Context
 import org.jetbrains.anko.runOnUiThread
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.*
 
-class BluetoothCommunicator(val ctx: Context, val address: String, val onConnectionStatus: (status: Boolean, e: Exception?) -> Unit, val onMessageReceived: (message: String) -> Unit, val onDeviceDisconnected: () -> Unit) : Thread() {
+class BluetoothCommunicator(
+  val ctx: Context,
+  address: String,
+  val onConnectionStatus: (status: Boolean, e: Exception?) -> Unit,
+  val onMessageReceived: (message: String) -> Unit,
+  val onDeviceDisconnected: () -> Unit
+) : Thread() {
 
-  val btSocket: BluetoothSocket
-  val device: BluetoothDevice
-  val adapter: BluetoothAdapter
   private val UUID_WELL_KNOWN_SPP = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
-  var connected = false
-  var data: String? = ""
-  lateinit var inputStream: InputStream
-  lateinit var outputStream: OutputStream
 
-  init {
-    adapter = BluetoothAdapter.getDefaultAdapter()
-    device = adapter.getRemoteDevice(address)
-    btSocket = device.createRfcommSocketToServiceRecord(UUID_WELL_KNOWN_SPP)
-  }
+  private val adapter = BluetoothAdapter.getDefaultAdapter()
+  private val device = adapter.getRemoteDevice(address)
+  private val btSocket = device.createRfcommSocketToServiceRecord(UUID_WELL_KNOWN_SPP)
+  var connected = false
+  private var data: String? = ""
+  private lateinit var inputStream: InputStream
+  private lateinit var outputStream: OutputStream
 
   override fun run() {
     try {
@@ -65,7 +64,7 @@ class BluetoothCommunicator(val ctx: Context, val address: String, val onConnect
     }
   }
 
-  fun read(): String? {
+  private fun read(): String? {
     val buffer = ByteArray(1024)
     var bytes = 0
     val recvd: String
@@ -95,12 +94,12 @@ class BluetoothCommunicator(val ctx: Context, val address: String, val onConnect
     var status = false
     val msg2 = msg + "\r\n"
     if (connected && data != null) {
-      try {
+      status = try {
         outputStream.write(msg2.toByteArray())
-        status = true
+        true
       } catch (e: Exception) {
         e.printStackTrace()
-        status = false
+        false
       }
     }
     return status

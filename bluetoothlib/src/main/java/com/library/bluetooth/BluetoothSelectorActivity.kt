@@ -13,10 +13,12 @@ import android.os.Parcelable
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
+import android.view.Surface
 import android.widget.ProgressBar
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.awesomedialog.blennersilva.awesomedialoglibrary.AwesomeProgressDialog
 import com.github.florent37.runtimepermission.kotlin.askPermission
 import com.github.ybq.android.spinkit.style.Pulse
@@ -39,6 +41,7 @@ class BluetoothSelectorActivity : AppCompatActivity(), LocationEnabledUtil.OnLoc
   val LOCATION_ENABLE_RC = 89
   val REQUEST_ENABLE_BT = 56
   var pairingDialog: AwesomeProgressDialog? = null
+  var deviceNameToAutoConnect: String? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -51,6 +54,8 @@ class BluetoothSelectorActivity : AppCompatActivity(), LocationEnabledUtil.OnLoc
     }
 
     bluetooth = BluetoothAdapter.getDefaultAdapter()
+
+    deviceNameToAutoConnect = intent.getStringExtra(AUTO_CONNECT_DEVICE_NAME)
   }
 
   override fun onResume() {
@@ -67,7 +72,7 @@ class BluetoothSelectorActivity : AppCompatActivity(), LocationEnabledUtil.OnLoc
     menuInflater.inflate(R.menu.device_selector_menu, menu)
     searchProgressItem = menu!!.findItem(R.id.searching)
     searchProgress = searchProgressItem.actionView as ProgressBar
-    searchProgressItem.setVisible(false)
+    searchProgressItem.isVisible = false
     return true
   }
 
@@ -95,7 +100,7 @@ class BluetoothSelectorActivity : AppCompatActivity(), LocationEnabledUtil.OnLoc
     }
   }
 
-  fun listDevices() {
+  private fun listDevices() {
     search_devices.setOnClickListener {
       if (!bluetooth.isDiscovering) {
         val filter = IntentFilter()
@@ -116,14 +121,23 @@ class BluetoothSelectorActivity : AppCompatActivity(), LocationEnabledUtil.OnLoc
     }
     val list = ArrayList<BluetoothDevice>()
     list.addAll(bluetooth.bondedDevices)
-    adapter = DevicesAdapter(this@BluetoothSelectorActivity, list) { position, device ->
+    adapter = DevicesAdapter(this@BluetoothSelectorActivity, list) { _, device ->
       connectToDevice(device)
     }
-    devices_recycler.layoutManager = GridLayoutManager(this, 4)
+    if (deviceNameToAutoConnect != null) {
+      list.find { it.name == deviceNameToAutoConnect }?.let {
+        connectToDevice(it)
+      }
+    }
+    devices_recycler.layoutManager = when (windowManager.defaultDisplay.rotation) {
+      Surface.ROTATION_90, Surface.ROTATION_180 -> GridLayoutManager(this, 4)
+      Surface.ROTATION_0, Surface.ROTATION_270 -> LinearLayoutManager(this)
+      else -> LinearLayoutManager(this)
+    }
     devices_recycler.adapter = adapter
   }
 
-  fun connectToDevice(device: BluetoothDevice) {
+  private fun connectToDevice(device: BluetoothDevice) {
     if (device.bondState == BluetoothDevice.BOND_NONE) {
       val intent = IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED)
       pairingDialog = AlertUtil.ProgressAlert.show(this@BluetoothSelectorActivity, "Please wait", "Pairing...")
@@ -135,7 +149,7 @@ class BluetoothSelectorActivity : AppCompatActivity(), LocationEnabledUtil.OnLoc
     }
   }
 
-  fun connectToDevice(address: String) {
+  private fun connectToDevice(address: String) {
     if (save_device.isChecked) {
       prefMan.saveDevice(address)
     }
@@ -150,19 +164,19 @@ class BluetoothSelectorActivity : AppCompatActivity(), LocationEnabledUtil.OnLoc
     override fun onReceive(context: Context, intent: Intent) {
       val action = intent.action
 
-      if (BluetoothAdapter.ACTION_DISCOVERY_STARTED == action) {
-        //discovery starts, we can show progress dialog or perform other tasks
-        val pulse = Pulse()
-        pulse.color = Color.WHITE
-        searchProgressItem.setVisible(true)
-        searchProgress.indeterminateDrawable = pulse
-      } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED == action) {
-        //discovery finishes, dismis progress dialog
-        searchProgressItem.setVisible(false)
-      } else if (BluetoothDevice.ACTION_FOUND == action) {
-        //bluetooth device found
-        val device = intent.getParcelableExtra<Parcelable>(BluetoothDevice.EXTRA_DEVICE) as BluetoothDevice
-        adapter.addDevice(device)
+      when (action) {
+        BluetoothAdapter.ACTION_DISCOVERY_STARTED -> {
+          val pulse = Pulse()
+          pulse.color = Color.WHITE
+          searchProgressItem.isVisible = true
+          searchProgress.indeterminateDrawable = pulse
+        }
+        BluetoothAdapter.ACTION_DISCOVERY_FINISHED ->
+          searchProgressItem.isVisible = false
+        BluetoothDevice.ACTION_FOUND -> {
+          val device = intent.getParcelableExtra<Parcelable>(BluetoothDevice.EXTRA_DEVICE) as BluetoothDevice
+          adapter.addDevice(device)
+        }
       }
     }
   }
@@ -179,10 +193,7 @@ class BluetoothSelectorActivity : AppCompatActivity(), LocationEnabledUtil.OnLoc
           pairingDialog?.hide()
           val device = intent.getParcelableExtra<Parcelable>(BluetoothDevice.EXTRA_DEVICE) as BluetoothDevice
           connectToDevice(device.address)
-        } else if (state == BluetoothDevice.BOND_NONE && prevState == BluetoothDevice.BOND_BONDED) {
-          //showToast("Unpaired")
         }
-
       }
     }
   }
@@ -200,20 +211,21 @@ class BluetoothSelectorActivity : AppCompatActivity(), LocationEnabledUtil.OnLoc
   companion object {
     val requestCode = 59
     val PREF_FILE_NAME = "device"
+    val AUTO_CONNECT_DEVICE_NAME = "auto_connect_device_name"
 
-    fun openBluetoothPicker(ctx: Activity) {
-      ctx.startActivityForResult<BluetoothSelectorActivity>(59)
+    fun openBluetoothPicker(ctx: Activity, deviceNameToAutoConnect: String? = null, rc: Int = requestCode) {
+      ctx.startActivityForResult<BluetoothSelectorActivity>(requestCode, AUTO_CONNECT_DEVICE_NAME to deviceNameToAutoConnect)
     }
 
-    fun openBluetoothPicker(ctx: Fragment) {
-      val i = Intent(ctx.context, BluetoothSelectorActivity::class.java)
-      ctx.startActivityForResult(i, 59)
+    fun openBluetoothPicker(ctx: Fragment, deviceNameToAutoConnect: String? = null, rc: Int = requestCode) {
+      val i = Intent(ctx.context, BluetoothSelectorActivity::class.java).also { it.putExtra(AUTO_CONNECT_DEVICE_NAME, deviceNameToAutoConnect) }
+      ctx.startActivityForResult(i, requestCode)
     }
 
     fun parseResult(requestCode: Int, resultCode: Int, data: Intent?): BluetoothDevice? {
       var device: BluetoothDevice? = null
-      if (resultCode == Activity.RESULT_OK && requestCode == requestCode && data != null) {
-        device = data.getParcelableExtra("device")
+      if (resultCode == Activity.RESULT_OK && data != null) {
+        device = data.getParcelableExtra(PREF_FILE_NAME)
       }
       return device
     }

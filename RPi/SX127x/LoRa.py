@@ -236,6 +236,19 @@ class LoRa(object):
         self.set_fifo_addr_ptr(base_addr)
         return self.spi.xfer([REG.LORA.FIFO | 0x80] + payload)[1:]
 
+    def write_payload2(self, payload):
+        """ Get FIFO ready for TX: Set FifoAddrPtr to FifoTxBaseAddr. The transceiver is put into STDBY mode.
+        :param payload: Payload to write (list)
+        :return:    Written payload
+        """
+        payload_size = len(payload)
+        self.set_payload_length(payload_size)
+
+        self.set_mode(MODE.STDBY)
+        base_addr = self.get_fifo_tx_base_addr()
+        self.set_fifo_addr_ptr(base_addr)
+        return self.spi.xfer2([REG.LORA.FIFO | 0x80] + payload)[1:]
+
     def reset_ptr_rx(self):
         """ Get FIFO ready for RX: Set FifoAddrPtr to FifoRxBaseAddr. The transceiver is put into STDBY mode. """
         self.set_mode(MODE.STDBY)
